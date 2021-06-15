@@ -42,17 +42,17 @@ public class MainActivity extends AppCompatActivity {
                 .subscribe(new Observer<List<Repo>>() {
                     @Override
                     public void onError(Throwable e) {
-
+                        Log.e(TAG, e.getMessage());
                     }
 
                     @Override
                     public void onComplete() {
-
+                        Log.d(TAG, "Complete");
                     }
 
                     @Override
                     public void onSubscribe(@NonNull Disposable d) {
-
+                        Log.d(TAG, "onSubscribe");
                     }
 
                     @Override
