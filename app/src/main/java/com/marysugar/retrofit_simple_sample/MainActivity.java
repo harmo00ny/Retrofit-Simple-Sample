@@ -2,9 +2,14 @@ package com.marysugar.retrofit_simple_sample;
 
 import android.os.Bundle;
 import android.util.Log;
-import android.widget.TextView;
+import android.view.View;
+import android.widget.ProgressBar;
+import android.widget.SearchView;
+import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 
 import java.util.List;
 
@@ -20,15 +25,40 @@ import retrofit2.converter.gson.GsonConverterFactory;
 
 public class MainActivity extends AppCompatActivity {
 
-    String TAG = getClass().getSimpleName();
+    private final String TAG = getClass().getSimpleName();
+    private RecyclerView mRecyclerView;
+    private ProgressBar mProgressBar;
+    private SearchView mSearchView;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        TextView tvId = findViewById(R.id.tv_id);
+        mRecyclerView = findViewById(R.id.rv);
+        mProgressBar = findViewById(R.id.pb);
+        mSearchView = findViewById(R.id.searchView);
+        mSearchView.setOnQueryTextListener(getListener());
+    }
 
+    private SearchView.OnQueryTextListener getListener() {
+        return new SearchView.OnQueryTextListener() {
+            @Override
+            public boolean onQueryTextChange(String newText) {
+                return true;
+            }
+
+            @Override
+            public boolean onQueryTextSubmit(String query) {
+                Log.d(TAG, query);
+                mSearchView.clearFocus();
+                searchRepository(query);
+                return true;
+            }
+        };
+    }
+
+    private void searchRepository(String query) {
         Retrofit retrofit = new Retrofit.Builder()
                 .baseUrl("https://api.github.com/")
                 .addConverterFactory(GsonConverterFactory.create())
@@ -36,30 +66,41 @@ public class MainActivity extends AppCompatActivity {
                 .build();
 
         GithubService service = retrofit.create(GithubService.class);
-        Observable<List<Repo>> observable = service.listRepos("octocat");
-        observable.subscribeOn(Schedulers.io())
+        Observable<List<Repo>> observableList = service.listRepos(query);
+        observableList.subscribeOn(Schedulers.io())
                 .observeOn(AndroidSchedulers.mainThread())
-                .subscribe(new Observer<List<Repo>>() {
-                    @Override
-                    public void onError(Throwable e) {
-                        Log.e(TAG, e.getMessage());
-                    }
+                .subscribe(getRepositoryObserver());
+    }
 
-                    @Override
-                    public void onComplete() {
-                        Log.d(TAG, "Complete");
-                    }
+    private Observer<List<Repo>> getRepositoryObserver() {
+        return new Observer<List<Repo>>() {
+            @Override
+            public void onError(Throwable e) {
+                Log.e(TAG, e.getMessage());
+                mProgressBar.setVisibility(View.INVISIBLE);
+                mRecyclerView.setVisibility(View.INVISIBLE);
+                Toast.makeText(getApplicationContext(),e.getMessage(),Toast.LENGTH_LONG).show();
+            }
 
-                    @Override
-                    public void onSubscribe(@NonNull Disposable d) {
-                        Log.d(TAG, "onSubscribe");
-                    }
+            @Override
+            public void onComplete() {
+                Log.d(TAG, "Complete");
+                mProgressBar.setVisibility(View.INVISIBLE);
+                mRecyclerView.setVisibility(View.VISIBLE);
+            }
 
-                    @Override
-                    public void onNext(List<Repo> repos) {
-                        Log.d(TAG, repos.get(0).id.toString());
-                        tvId.setText(repos.get(0).id.toString());
-                    }
-                });
+            @Override
+            public void onSubscribe(@NonNull Disposable d) {
+                Log.d(TAG, "onSubscribe");
+                mProgressBar.setVisibility(View.VISIBLE);
+            }
+
+            @Override
+            public void onNext(List<Repo> repos) {
+                RecyclerView.LayoutManager layoutManager = new LinearLayoutManager(getParent());
+                mRecyclerView.setLayoutManager(layoutManager);
+                mRecyclerView.setAdapter(new MainAdapter(repos));
+            }
+        };
     }
 }
